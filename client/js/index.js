@@ -11,7 +11,8 @@ function getFormData(form) {
 }
 
 function updateStudentsList(studentsData) {
-    const studentsHTML = studentsData.map(renderStudent).join('');
+    const studentsToAdd = getStudentsToAdd();
+    const studentsHTML = studentsData.concat(studentsToAdd).map(renderStudent).join('');
 
     [].forEach.call(
         document.querySelectorAll('.students__list'),
@@ -94,6 +95,22 @@ function onStudentSaveClick(e) {
         });
 }
 
+function onStudentRemoveClick(e) {
+    const studentContainer = this.closest('.student');
+    const studentData = studentContainer.dataset.student;
+
+    removeStudent(JSON.parse(studentData))
+        .then(() => {
+            studentContainer.outerHTML = '';
+        })
+        .then(getStudents)
+        .then(updateStudentsList)
+        .catch((e) => {
+            console.error(e);
+            alert('Что-то пошло не так!');
+        });
+}
+
 function renderStudent(student) {
     return `
         <div class="student" data-student='${JSON.stringify(student)}'>
@@ -104,6 +121,7 @@ function renderStudent(student) {
                 <h2 class="student__name">${student.name}</h2>
                 <p class="student__bio">${student.bio}</p>
                 <button class="student__update-btn">Изменить</button>
+                <button class="student__remove-btn">Удалить</button>
             </div>
         </div>
     `;
@@ -117,7 +135,7 @@ function renderStudentForm(student) {
                 <span class="student-form__field-label">Имя</span><input type="text" name="name" value="${student.name}">
             </label>
             <label class="student-form__field student-form__field-picture">
-                <span class="student-form__field-label">URL фотографии</span><input type="text" name="picture" value="${student.picSrc}">
+                <span class="student-form__field-label">URL фотографии</span><input type="text" name="picSrc" value="${student.picSrc}">
             </label>
             <label class="student-form__field student-form__field-bio">
                 <span class="student-form__field-label">Кратко о себе</span><textarea name="bio" rows="5" cols="40">${student.bio}</textarea>
@@ -192,6 +210,43 @@ function ValidationError(prop, message) {
 ValidationError.prototype = Object.create(Error.prototype);
 ValidationError.prototype.constructor = ValidationError;
 
+/* Offline storage helpers */
+
+function getStudentsToAdd() {
+    return JSON.parse(localStorage.getItem('studentsToAdd'));
+}
+
+function putStudentsToAdd(student) {
+    var studentsToAdd = getStudentsToAdd();
+    studentsToAdd.push(student);
+    localStorage.setItem('studentsToAdd', JSON.stringify(studentsToAdd));
+
+    return studentsToAdd.length;
+}
+
+function clearStudentsToAdd() {
+    localStorage.setItem('studentsToAdd', '[]');
+}
+
+/* Синхронизация добавленных в оффлайне студентов */
+
+function sync() {
+    var studentsToAdd = getStudentsToAdd();
+    if (navigator.onLine && studentsToAdd.length) {
+        return fetch('/api/v1/students', {
+            method: 'post',
+            headers: {
+                "Content-type": "application/json; charset=UTF-8"
+            },
+            body: JSON.stringify(studentsToAdd)
+        })
+        .then(clearStudentsToAdd)
+        .catch(() => Promise.resolve())
+    } else {
+        return Promise.resolve();
+    }
+}
+
 /* API accessors */
 
 function json(response) { return response.json(); }
@@ -206,8 +261,10 @@ function addStudent(student) {
         headers: {
             "Content-type": "application/json; charset=UTF-8"
         },
-        body: JSON.stringify(student)
-    }).then(json);
+        body: JSON.stringify([student])
+    })
+    .then(json)
+    .catch(putStudentsToAdd.bind({}, student));
 }
 
 function updateStudent(student) {
@@ -218,6 +275,16 @@ function updateStudent(student) {
         },
         body: JSON.stringify(student)
     }).then(json);
+}
+
+function removeStudent(student) {
+    return fetch(`/api/v1/students/${student.id}`, {
+        method: 'delete',
+        headers: {
+            "Content-type": "application/json; charset=UTF-8"
+        },
+        body: JSON.stringify(student)
+    });
 }
 
 /* Init */
@@ -244,5 +311,26 @@ document.addEventListener('DOMContentLoaded', (event) => {
         onStudentSaveClick
     );
 
-    getStudents().then(updateStudentsList);
+    delegate(
+        document.querySelectorAll('.students'),
+        '.student__remove-btn',
+        'click',
+        onStudentRemoveClick
+    );
+
+    // Инициализация оффлайн-хранилища
+    if (!localStorage.getItem('studentsToAdd')) {
+        localStorage.setItem('studentsToAdd', '[]');
+    }
+
+    sync().then(getStudents).then(updateStudentsList);
+});
+
+window.addEventListener('offline', () => {
+    console.log('Соединение потеряно');
+});
+
+window.addEventListener('online', () => {
+    console.log('Соединение восстановлено');
+    sync().then(getStudents).then(updateStudentsList);
 });

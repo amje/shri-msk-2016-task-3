@@ -9,20 +9,23 @@ module.exports = function (storagePath) {
     return {
         getAll: noFlushStorage(getAll.bind(this, storage)),
         add: flushStorage(storagePath, storage, add.bind(this, storage)),
-        update: flushStorage(storagePath, storage, update.bind(this, storage))
+        update: flushStorage(storagePath, storage, update.bind(this, storage)),
+        remove: flushStorage(storagePath, storage, remove.bind(this, storage))
     };
 };
 
-function add(storage, student) {
-    const id = storage.length + 1;
-    student = Object.assign({}, student, {id: id});
-    storage.push(student);
-    return student;
-};
+function add(storage, students) {
+    return students.map((student) => {
+        const id = storage.length + 1;
+        student = Object.assign({}, student, {id: id});
+        storage.push(student);
+        return student;
+    });
+}
 
 function getAll(storage) {
 	return storage;
-};
+}
 
 function update(storage, student) {
     const result = find(storage, (x) => x.id === student.id);
@@ -32,7 +35,18 @@ function update(storage, student) {
     }
 
     return Object.assign(result, student);
-};
+}
+
+function remove(storage, student) {
+    const index = storage.findIndex((x) => x.id === student.id);
+
+    if (!~index) {
+        throw new Error(`Student with id ${student.id} not found!`);
+    }
+
+    storage.splice(index, 1);
+    return storage;
+}
 
 function flushStorage(storagePath, storageObject, fn) {
     return function () {

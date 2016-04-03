@@ -4,8 +4,11 @@
 		<meta charset="utf-8">
 		<title>Студенты ШРИ 2016</title>
         <script type="text/javascript">
+            // Проблема: Область видимости воркера не может быть выше директории в которой он находится (/js в нашем случае),
+            // поэтому он будет видеть только запросы вида /js/...
+            // Решение: Положим воркер в корень, чтобы получать запросы по любому урлу
             if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/js/worker.js');
+                navigator.serviceWorker.register('/worker.js');
             }
         </script>
 		<link rel="stylesheet" href="/css/index.css">
@@ -19,7 +22,7 @@
                     <span class="student-form__field-label">Имя</span><input type="text" name="name">
                 </label>
                 <label class="student-form__field student-form__field-picture">
-                    <span class="student-form__field-label">URL фотографии</span><input type="text" name="picture">
+                    <span class="student-form__field-label">URL фотографии</span><input type="text" name="picSrc">
                 </label>
                 <label class="student-form__field student-form__field-bio">
                     <span class="student-form__field-label">Кратко о себе</span><textarea name="bio" rows="5" cols="40"></textarea>

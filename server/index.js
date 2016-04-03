@@ -14,14 +14,14 @@ app.use(express.static(path.join(__dirname, '../client')));
 app.use(bodyParser.json());
 
 app.get('/api/v1/students', (req, res) => {
-    console.log('GET /api/v1/students')
+    console.log('GET /api/v1/students');
     students.getAll().then((result) => res.json(result));
 });
 
 app.post('/api/v1/students', (req, res, next) => {
-    const student = parseStudentFromRequest(req);
-    console.log('POST /api/v1/students', student);
-    students.add(student).then((result) => res.json(result));
+    const studentsArray = parseStudentsFromRequest(req);
+    console.log('POST /api/v1/students', studentsArray);
+    students.add(studentsArray).then((result) => res.json(result));
 });
 
 app.put('/api/v1/students/:id', (req, res, next) => {
@@ -32,6 +32,14 @@ app.put('/api/v1/students/:id', (req, res, next) => {
     students.update(student).then((result) => res.json(result));
 });
 
+app.delete('/api/v1/students/:id', (req, res) => {
+    const student = parseStudentFromRequest(req);
+    const studentId = Number(req.params.id);
+    console.log(`DELETE /api/v1/students/${studentId}`, student);
+    student.id = studentId;
+    students.remove(student).then(() => res.status(204).send());
+});
+
 app.listen(8080, () => {
     console.log('Server listening on port 8080!');
 });
@@ -39,9 +47,20 @@ app.listen(8080, () => {
 function parseStudentFromRequest(req, res) {
     return {
         name: req.body.name,
-        picSrc: req.body.picture,
+        picSrc: req.body.picSrc,
         bio: req.body.bio
     };
+}
+
+// Для возможности добавлять студентов массивом, когда синхронизирумся после оффлайна
+function parseStudentsFromRequest(req) {
+    return req.body.map((student) => {
+        return {
+            name: student.name,
+            picSrc: student.picSrc,
+            bio: student.bio
+        };
+    });
 }
 
 function getEtag(body, encoding) {
